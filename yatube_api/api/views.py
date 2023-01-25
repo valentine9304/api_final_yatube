@@ -1,16 +1,16 @@
 from django.shortcuts import get_object_or_404
 
-from rest_framework.response import Response
+from rest_framework.pagination import LimitOffsetPagination
+from rest_framework import viewsets, filters
 from rest_framework.permissions import (IsAuthenticatedOrReadOnly,
                                         IsAuthenticated)
-from rest_framework.pagination import LimitOffsetPagination
-from rest_framework import viewsets, status, filters
-from posts.models import Post, Follow, Group
 
 from .serializers import (PostSerializer, CommentSerializer,
                           FollowSerializer, GroupSerializer)
 
 from .permission import IsAuthorOrReadOnly
+
+from posts.models import Post, Follow, Group
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -26,10 +26,6 @@ class PostViewSet(viewsets.ModelViewSet):
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-
-    def perform_create(self, serializer):
-        return Response(serializer.errors,
-                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -47,16 +43,14 @@ class CommentViewSet(viewsets.ModelViewSet):
 
 class FollowViewSet(viewsets.ModelViewSet):
     queryset = Follow.objects.all()
+    http_method_names = ['get', 'post']
     serializer_class = FollowSerializer
     permission_classes = [IsAuthenticated, ]
     filter_backends = (filters.SearchFilter, )
     search_fields = ('following__username',)
 
-    # permission_classes = [IsFollowingYourSelf,]
-
     def get_queryset(self):
-        follow = Follow.objects.filter(user=self.request.user)
-        return follow.all()
+        return self.request.user.follower.all()
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
